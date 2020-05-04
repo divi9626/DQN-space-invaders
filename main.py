@@ -21,7 +21,7 @@ def preprocess_frame(frame):
      # [Up: Down, Left: right]
      cropped_frame = gray[8:-12,4:-12]
      # Normalize Pixel Values
-     normalized_frame = cropped_frame/255.0
+     normalized_frame = cropped_frame/255.0 
      # Resize
      preprocessed_frame = transform.resize(normalized_frame, [110,84])
      return preprocessed_frame 
@@ -88,9 +88,47 @@ def sample(memory, batch_size):
      buffer_size = len(memory)
      index = np.random.choice(np.arange(buffer_size),
      size = batch_size,
-     replace = True) 
+     replace = False) 
      return [memory[i] for i in index]
  
+for i in range(pretrain_length):
+    # If it's the first step
+    if i == 0:
+        state = env.reset()
+        
+        state, stacked_frames = stack_frames(stacked_frames, state, True)
+        
+    # Get the next_state, the rewards, done by taking a random action
+    choice = random.randint(1,len(possible_actions))-1
+    action = possible_actions[choice]
+    next_state, reward, done, _ = env.step(action)
+    
+    #env.render()
+    
+    # Stack the frames
+    next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
+    
+    
+    # If the episode is finished (we're dead 3x)
+    if done:
+        # We finished the episode
+        next_state = np.zeros(state.shape)
+        
+        # Add experience to memory
+        memory.append((state, action, reward, next_state, done))
+        
+        # Start a new episode
+        state = env.reset()
+        
+        # Stack the frames
+        state, stacked_frames = stack_frames(stacked_frames, state, True)
+        
+    else:
+        # Add experience to memory
+        memory.append((state, action, reward, next_state, done))
+        
+        # Our new state is now the next_state
+        state = next_state
     
 def predict_action(model,explore_start, explore_stop, decay_rate, decay_step, state, actions):
      exp_exp_tradeoff = np.random.rand()
@@ -251,12 +289,12 @@ for episode in range(total_test_episodes):
      state = env.reset()
      state, stacked_frames = stack_frames(stacked_frames, state, True)
      done = False
-     agent_loaded = keras.models.load_model('Training episode 184_.h5')
+     #agent_loaded = keras.models.load_model('Training episode 184_.h5')
      while not done:
          step += 1
          decay_step +=1
          # Predict the action to take and take it
-         action, explore_probability = predict_action(agent_loaded,explore_start, explore_stop, decay_rate, decay_step, state, possible_actions)
+         action, explore_probability = predict_action(agent,explore_start, explore_stop, decay_rate, decay_step, state, possible_actions)
      #Perform the action and get the next_state, reward, and done information
          next_state, reward, done, _ = env.step(action)
          # Add the reward to total reward
